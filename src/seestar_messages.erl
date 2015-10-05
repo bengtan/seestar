@@ -199,7 +199,10 @@ decode_rows(Columns, Data, Count) ->
 decode_rows(_, _, 0, Acc) ->
     lists:reverse(Acc);
 decode_rows(Columns, Data, Count, Acc) ->
-    {Row, Rest} = decode_row(Columns, Data),
+    {Row, Rest} = case Columns of
+        [] -> decode_bare_row(Data);
+        _ -> decode_row(Columns, Data)
+    end,
     decode_rows(Columns, Rest, Count - 1, [Row|Acc]).
 
 decode_row(Columns, Data) ->
@@ -210,6 +213,15 @@ decode_row([], Data, Row) ->
 decode_row([#column{type = Type}| Columns], Data, Row) ->
     {Value, Rest} = seestar_cqltypes:decode_value_with_size(Type, Data),
     decode_row(Columns, Rest, [Value|Row]).
+
+% Decode row when we don't have column data
+decode_bare_row(Data) ->
+    decode_bare_row(Data, []).
+decode_bare_row(<<"">>, Row) ->
+    {lists:reverse(Row), <<"">>};
+decode_bare_row(Data, Row) ->
+    {Value, Rest} = seestar_types:decode_bytes(Data),
+    decode_bare_row(Rest, [Value|Row]).
 
 decode_metadata(Data) ->
     {Flags, Rest0} = seestar_types:decode_int(Data),
